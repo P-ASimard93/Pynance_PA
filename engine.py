@@ -226,6 +226,21 @@ class Engine:
 
                 self.bank.update_bank_stock()
 
+                if (self.iteration // self.bank.mandatory_payment_interval)% 10 == 0:
+                    dividend = self.bank.stock_value * 0.01
+
+                    for player_id, state in self.bank.player_loans.items():
+                        if state["is_vip"]:
+                            cash_path = f"cash:{player_id}"
+                            current_cash = self.database.getPath(cash_path)
+
+                            if(isinstance(current_cash, bool) or not isinstance(current_cash, (int,float)) 
+                               or not math.isfinite(current_cash)):
+                                raise ValueError(f"Solde invalide pour {player_id!r} : {current_cash!r}")
+
+                            self.database.setPath(cash_path, current_cash + dividend)
+                
+
             self.database.set("bank_state", {
                 "stock_value": self.bank.stock_value,
                 "stock_change_percent": self.bank.stock_change_percent,
