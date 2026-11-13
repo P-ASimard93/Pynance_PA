@@ -60,7 +60,7 @@ class random_eventer:
     # initialisation de la classe. On crée les paramètres qui vont être
     # réutilisés plus tard dans la classe.
 
-    def __init__(self, chaos, market=None):
+    def __init__(self, chaos, market=None, reset_state=False):
         self.chaos = chaos
         self.event_list = []
         self.active_events = []
@@ -165,7 +165,7 @@ class random_eventer:
 
             self.template_weights[scope][template["id"]] = 1.0
 
-        if not self.load_state():
+        if reset_state or not self.load_state():
             self.event_list = [self.build_event() for _ in range(5)]
             self.write_state()
 

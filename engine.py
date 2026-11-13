@@ -43,7 +43,8 @@ class Engine:
         self.database.set("messages", [])
         self.hosting = True
         self.market = Market(self.config["num_stocks"])
-        self.eventer = random_eventer(chaos=self.config["chaos"], market=self.market)
+        self.eventer = random_eventer(chaos=self.config["chaos"], market=self.market, 
+                                      reset_state = True)
         self.iteration = 0
         self.userbase = Userbase(self.config["num_users"], self.config["difficulty"])
         self.database.set("tick", {"iteration": 0, "prices": {}})
