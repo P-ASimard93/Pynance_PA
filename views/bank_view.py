@@ -164,11 +164,11 @@ class BankView(ctk.CTkFrame):
             text=f"{state['credit_score']} / 100 · {vip_status}"
         )
 
-        dividend_interval = self.engine.bank.mandatory_payment_interval * 10
+        dividend_interval = (self.engine.bank.mandatory_payment_interval * self.engine.bank.dividend_interval)
         ticks_until_dividend = dividend_interval - (self.engine.iteration % dividend_interval)
 
         if state["is_vip"]:
-            estimated_dividend = self.engine.bank.stock_value * 0.01
+            estimated_dividend = (self.engine.bank.stock_value * self.engine.bank.dividend_rate)
             dividend_text = (f"Dividende VIP estimé : ${estimated_dividend:.2f}" 
                              f" --- prochain versement dans {ticks_until_dividend} itérations")
             dividend_color = "#0ecb81"

@@ -226,8 +226,8 @@ class Engine:
 
                 self.bank.update_bank_stock()
 
-                if (self.iteration // self.bank.mandatory_payment_interval)% 10 == 0:
-                    dividend = self.bank.stock_value * 0.01
+                if (self.iteration // self.bank.mandatory_payment_interval)% self.bank.dividend_interval == 0:
+                    dividend = self.bank.stock_value * self.bank.dividend_rate
 
                     for player_id, state in self.bank.player_loans.items():
                         if state["is_vip"]:

@@ -7,7 +7,7 @@ class Bank:
     # initialisation de tous les paramètres/variables qui seront utilisés ici.
 
     def __init__(self):
-        self.stock_value = 100.0
+        self.stock_value = 10000.0
         self.stock_change_percent = 0.0
         self.player_loans = {}
         self.stock_history = [self.stock_value]
@@ -18,6 +18,8 @@ class Bank:
     base_interest_rate = 0.10
     interest_increase = 0.005
     mandatory_payment_interval = 100
+    dividend_rate = 0.01
+    dividend_interval = 2
 
     # crée le "compte bancaire" initial d'un joueur si celui-ci n'existe pas encore
 
@@ -50,7 +52,7 @@ class Bank:
 
         credit_score = state["credit_score"]
 
-        return self.stock_value * credit_score * 1000
+        return self.stock_value * credit_score * 10
 
     # valide puis ajoute un nouveau prêt au joueur. vérifie aussi les paramètres bancaires
     # (montant, limite de prêt, dette totale et crédit)
