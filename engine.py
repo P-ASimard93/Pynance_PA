@@ -239,6 +239,8 @@ class Engine:
                                 raise ValueError(f"Solde invalide pour {player_id!r} : {current_cash!r}")
 
                             self.database.setPath(cash_path, current_cash + dividend)
+                            state["last_divident"] = dividend
+                            state["last_dividend_iteration"] = self.iteration
                 
 
             self.database.set("bank_state", {
