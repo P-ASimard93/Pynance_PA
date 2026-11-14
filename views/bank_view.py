@@ -71,6 +71,10 @@ class BankView(ctk.CTkFrame):
         )
         self.loans_label.pack(anchor="w", padx=16, pady=(0, 16))
 
+        self.dividend_label = ctk.CTkLabel(loans_panel, text = "", text_color = "#848e9c", 
+                                           justify = "left", anchor = "w", font = ("Arial", 12),)
+        self.dividend_label.pack(anchor = "w", padx = 16, pady = (0,12))
+
         actions_panel = ctk.CTkFrame(self, fg_color="#181a20", corner_radius=8)
         actions_panel.grid(
             row=2, column=1, columnspan=2, padx=(6, 18), pady=(0, 18), sticky="nsew"
@@ -159,6 +163,22 @@ class BankView(ctk.CTkFrame):
         self.credit_label.configure(
             text=f"{state['credit_score']} / 100 · {vip_status}"
         )
+
+        dividend_interval = self.engine.bank.mandatory_payment_interval * 10
+        ticks_until_dividend = dividend_interval - (self.engine.iteration % dividend_interval)
+
+        if state["is_vip"]:
+            estimated_dividend = self.engine.bank.stock_value * 0.01
+            dividend_text = (f"Dividende VIP estimé : ${estimated_dividend:.2f}" 
+                             f" --- prochain versement dans {ticks_until_dividend} itérations")
+            dividend_color = "#0ecb81"
+
+        else:
+            dividend_text = ("Dividendes réservées aux VIP" 
+                             f" --- prochain versement dans {ticks_until_dividend} itérations")
+            dividend_color = "#848e9c"
+
+        self.dividend_label.configure(text = dividend_text, text_color = dividend_color)      
 
         maximum_loan = self.engine.bank.get_max_loan(self.engine.username)
         maximum_loan_line = f"Prêt maximal : ${maximum_loan:.2f}"
