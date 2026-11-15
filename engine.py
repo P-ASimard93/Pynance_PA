@@ -3,6 +3,7 @@ from market.market import Market
 from Database import Database
 from random_events.random_events import random_eventer
 from Bank.bank import Bank
+from Gouvernement.government import Government
 import json
 import time
 import math
@@ -42,6 +43,10 @@ class Engine:
         self.database.setPath("cash:host", self.config["starting_cash"])
         self.database.set("messages", [])
         self.hosting = True
+        self.government = Government(reset_state = True)
+        for player_id in self.database.get("playerlist") or [self.username]:
+            self.government.add_player(player_id)
+        self.database.set("government_state", self.government.players)
         self.market = Market(self.config["num_stocks"])
         self.eventer = random_eventer(chaos=self.config["chaos"], market=self.market, 
                                       reset_state = True)
@@ -104,6 +109,8 @@ class Engine:
     def newPlayer(self, username):
         self.database.setPath(f"cash:{username}", self.config["starting_cash"])
         self.bank.add_player(username)
+        self.government.add_player(username)
+        self.database.set("government_state", self.government.players)
         if self.market and self.market.stocks:
             self.database.set(
                 "market",
