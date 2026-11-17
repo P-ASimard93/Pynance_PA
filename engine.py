@@ -46,7 +46,7 @@ class Engine:
         self.government = Government(reset_state = True)
         for player_id in self.database.get("playerlist") or [self.username]:
             self.government.add_player(player_id)
-        self.database.set("government_state", self.government.players)
+        self.sync_government_state()
         self.market = Market(self.config["num_stocks"])
         self.eventer = random_eventer(chaos=self.config["chaos"], market=self.market, 
                                       reset_state = True)
@@ -110,7 +110,7 @@ class Engine:
         self.database.setPath(f"cash:{username}", self.config["starting_cash"])
         self.bank.add_player(username)
         self.government.add_player(username)
-        self.database.set("government_state", self.government.players)
+        self.sync_government_state()
         if self.market and self.market.stocks:
             self.database.set(
                 "market",
@@ -223,6 +223,11 @@ class Engine:
                 messages.pop(0)
             self.database.set("messages", messages)
 
+    def sync_government_state(self):
+        self.database.set("government_state", {"players": self.government.players, 
+                                               "fiscal_health": self.government.fiscal_health,
+                                               "fiscal_history": self.government.fiscal_history})
+
     def tick(self):
         if self.hosting:
             self.iteration += 1
@@ -283,8 +288,10 @@ class Engine:
             if self.iteration% event_check_interval == 0:
                 if played_event and played_event.get("scope") == "global":
                     self.government.apply_global_event_impact(played_event)
+                    self.sync_government_state()
                 else:
                     self.government.random_fiscal_drift()
+                    self.sync_government_state()
 
             if self.eventer.event_list:
                 next_event = self.eventer.event_list[0]

@@ -9,6 +9,7 @@ class Government:
     initial_fiscal_health = 50.0
     tax_rate_zero_health = 0.30
     tax_rate_full_health = 0.10
+    fiscal_history_limit = 200
 
     def __init__(self, reset_state = True):
         self.data_directory = Path(__file__).resolve().parent
@@ -27,6 +28,8 @@ class Government:
 
             self.fiscal_health = {country: self.initial_fiscal_health for country 
                                   in self.countries}
+
+            self.fiscal_history = {country: [health] for country, health in self.fiscal_health.items()}
 
             self.regions_file = (self.data_directory.parent / "random_events" / "countries_regions.json")
 
@@ -80,12 +83,40 @@ class Government:
             
             self.fiscal_health[country] = float(health)
 
+        saved_history = state.get("fiscal_history", {})
+        if not isinstance(saved_history, dict):
+            raise ValueError("Historique fiscal invalide")
+
+        for country in self.countries:
+            values = saved_history.get(country)
+
+            if values is None:
+                self.fiscal_history[country] = [self.fiscal_health[country]]
+                continue
+
+            if not isinstance(values, list):
+                raise ValueError(f"Histprique fiscal invalide pour {country!r}")
+
+            valid_values = []
+            for value in values:
+                if (isinstance(value,bool) or not isinstance(value, (int, float)) 
+                    or not math.isfinite(value) 
+                    or not 0 <= value <= 100):
+                    raise ValueError(f"Valeur d'historique invalide pour {country!r}")
+                valid_values.append(float(value))
+
+            self.fiscal_history[country] = (valid_values[-self.fiscal_history_limit:] 
+                                            or [self.fiscal_health[country]])
+
+
+
+
         self.players = state["players"]
 
     def save_state(self):
         with self.state_file.open("w", encoding = "utf-8") as file:
-            json.dump({"players": self.players, "fiscal_health": self.fiscal_health}, 
-                      file, indent = 2, ensure_ascii = False)
+            json.dump({"players": self.players, "fiscal_health": self.fiscal_health, 
+                       "fiscal_history": self.fiscal_history}, file, indent = 2, ensure_ascii = False)
 
     def adjust_health(self, value, minimum = 0.00, maximum = 100.0):
         return max(minimum, min(maximum, value))
@@ -97,7 +128,7 @@ class Government:
 
             self.fiscal_health[country] = self.adjust_health(health + direction * amount)
 
-        self.save_state()
+        self.record_fiscal_history()
 
 
     def apply_global_event_impact(self, event):
@@ -120,11 +151,20 @@ class Government:
             affected_countries = [country]
         elif region in self.countries_by_region:
             affected_countries = self.countries_by_region[region]
-        else: return
+        else: 
+            affected_countries = []
 
         fiscal_change = impact * 12.0
 
         for affected_country in set(affected_countries):
             self.fiscal_health[affected_country] = self.adjust_health(self.fiscal_health[affected_country] + fiscal_change)
+
+        self.record_fiscal_history()
+
+    def record_fiscal_history(self):
+        for country, health in self.fiscal_health.items():
+            history = self.fiscal_history.setdefault(country, [])
+            history.append(health)
+            del history[:-self.fiscal_history_limit]
 
         self.save_state()

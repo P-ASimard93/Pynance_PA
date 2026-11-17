@@ -12,6 +12,7 @@ from views.bank_view import BankView
 from views.casino_view import CasinoView
 from views.multi_view import MultiView
 from views.settings_view import SettingsView
+from views.government_view import GovernmentView
 from assets import Assets
 import logging
 
@@ -83,6 +84,10 @@ class MainApp(ctk.CTk):
                 dark_image=Image.open(self.assets.getAssetPath("settings.png")),
                 size=(24, 24),
             )
+            government_pic = ctk.CTkImage(
+                dark_image = Image.open(self.assets.getAssetPath("government.png")),
+                size=(24, 24)
+            )
         except:
             logo = None
             casino_pic = None
@@ -91,6 +96,7 @@ class MainApp(ctk.CTk):
             multi_pic = None
             bank_pic = None
             settings = None
+            government_pic = None
 
         button_style = {
             "text": "",
@@ -101,7 +107,7 @@ class MainApp(ctk.CTk):
             "hover_color": "#2a2d2e",
         }
 
-        self.menu_bar.grid_rowconfigure(6, weight=1)
+        self.menu_bar.grid_rowconfigure(7, weight=1)
         self.logo = ctk.CTkLabel(self.menu_bar, image=logo, text="")
         self.logo.grid(row=0, column=0, padx=8, pady=(8, 20))
 
@@ -151,7 +157,15 @@ class MainApp(ctk.CTk):
             command=lambda: self.show_frame("Settings"),
             **button_style,
         )
-        self.btn_settings.grid(row=7, column=0, padx=8, pady=10)
+        self.btn_settings.grid(row=8, column=0, padx=8, pady=10)
+
+        self.btn_government = ctk.CTkButton(
+            self.menu_bar,
+            image = government_pic,
+            command=lambda:self.show_frame("Government"),
+            **button_style
+        )
+        self.btn_government.grid(row = 6, column = 0, padx = 8, pady = 2)
 
         self.navigation_buttons = {
             "Casino": self.btn_casino,
@@ -160,6 +174,7 @@ class MainApp(ctk.CTk):
             "Multi": self.btn_multi,
             "Bank": self.btn_bank,
             "Settings": self.btn_settings,
+            "Government": self.btn_government
         }
         self.frames = {}
         self.init_frames()
@@ -176,6 +191,7 @@ class MainApp(ctk.CTk):
             "Bank": BankView,
             "Multi": MultiView,
             "Settings": SettingsView,
+            "Government": GovernmentView
         }
 
         for name, FrameClass in page_classes.items():
@@ -199,6 +215,7 @@ class MainApp(ctk.CTk):
             "Trading": "Application - Trading",
             "Multi": "Application - Multijoueur",
             "Bank": "Application - Banque",
+            "Government": "Application - Gouvernement"
         }
 
         if hasattr(frame, "refresh"):
@@ -217,6 +234,10 @@ class MainApp(ctk.CTk):
 
         if market_view and market_view.winfo_viewable():
             market_view.refresh()
+
+        government_view = self.frames.get("Government")
+        if government_view and government_view.winfo_viewable():
+            government_view.refresh()
 
         self.after(2000, self.run_clock)
 
