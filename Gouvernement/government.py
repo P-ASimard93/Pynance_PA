@@ -97,7 +97,7 @@ class Government:
 
             self.fiscal_health[country] = self.adjust_health(health + direction * amount)
 
-            self.save_state()
+        self.save_state()
 
 
     def apply_global_event_impact(self, event):
@@ -125,6 +125,6 @@ class Government:
         fiscal_change = impact * 12.0
 
         for affected_country in set(affected_countries):
-            self.fiscal_health[country] = self.adjust_health(self.fiscal_health[affected_country + fiscal_change])
+            self.fiscal_health[affected_country] = self.adjust_health(self.fiscal_health[affected_country] + fiscal_change)
 
         self.save_state()

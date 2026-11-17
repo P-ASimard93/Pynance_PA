@@ -286,9 +286,6 @@ class Engine:
                 else:
                     self.government.random_fiscal_drift()
 
-            if played_event:
-                self.government.apply_global_event_impact
-
             if self.eventer.event_list:
                 next_event = self.eventer.event_list[0]
                 self.database.set(
