@@ -227,6 +227,22 @@ class Engine:
         if self.hosting:
             self.iteration += 1
 
+            if self.iteration % self.government.tax_interval == 0:
+                for player_id, player_state in self.government.players.items():
+                    cash_path = f"cash:{player_id}"
+                    current_cash = self.database.getPath(cash_path)
+
+                if (isinstance(current_cash, bool) or not isinstance(current_cash, (int, float)) 
+                    or not math.isfinite(current_cash) or current_cash < 0):
+                    raise ValueError(f"Solde invalide pour {player_id!r} : {current_cash!r}")
+
+                country = player_state["country"]
+                tax_rate = self.government.get_tax_rate(country)
+                tax_amount = current_cash * tax_rate
+
+                self.database.setPath(cash_path, current_cash - tax_amount)
+
+                    
             if self.iteration % self.bank.mandatory_payment_interval == 0:
                 for player_id in list(self.bank.player_loans):
                     self.bank.update_loans(player_id)
