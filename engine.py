@@ -232,16 +232,15 @@ class Engine:
                     cash_path = f"cash:{player_id}"
                     current_cash = self.database.getPath(cash_path)
 
-                if (isinstance(current_cash, bool) or not isinstance(current_cash, (int, float)) 
-                    or not math.isfinite(current_cash) or current_cash < 0):
-                    raise ValueError(f"Solde invalide pour {player_id!r} : {current_cash!r}")
+                    if (isinstance(current_cash, bool) or not isinstance(current_cash, (int, float)) 
+                        or not math.isfinite(current_cash) or current_cash < 0):
+                        raise ValueError(f"Solde invalide pour {player_id!r} : {current_cash!r}")
 
-                country = player_state["country"]
-                tax_rate = self.government.get_tax_rate(country)
-                tax_amount = current_cash * tax_rate
+                    country = player_state["country"]
+                    tax_rate = self.government.get_tax_rate(country)
+                    tax_amount = current_cash * tax_rate
 
-                self.database.setPath(cash_path, current_cash - tax_amount)
-
+                    self.database.setPath(cash_path, current_cash - tax_amount)
                     
             if self.iteration % self.bank.mandatory_payment_interval == 0:
                 for player_id in list(self.bank.player_loans):
@@ -275,9 +274,20 @@ class Engine:
 
             bank_state = self.database.get("bank_state")
 
+            event_check_interval = 10
+
             played_event = self.eventer.update(
-                current_iteration=self.iteration, check_interval=10, market=self.market
+                current_iteration=self.iteration, check_interval=event_check_interval, market=self.market
             )
+
+            if self.iteration% event_check_interval == 0:
+                if played_event and played_event.get("scope") == "global":
+                    self.government.apply_global_event_impact(played_event)
+                else:
+                    self.government.random_fiscal_drift()
+
+            if played_event:
+                self.government.apply_global_event_impact
 
             if self.eventer.event_list:
                 next_event = self.eventer.event_list[0]
