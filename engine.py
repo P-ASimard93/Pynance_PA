@@ -143,7 +143,7 @@ class Engine:
         })
 
     def process_bank_action(self, username, action, amount=None):
-        if not self.hosting or action not in ("take_loan", "repay_loan", "repay_all"):
+        if not self.hosting or action not in ("take_loan", "repay_loan", "repay_all", "bribe"):
             return False
 
         self.bank.add_player(username)
@@ -190,6 +190,21 @@ class Engine:
 
             paid_amount = self.bank.repay_loans(username)
             self.database.setPath(cash_path, current_cash - paid_amount)
+
+        elif action == "bribe":
+            if isinstance(amount, bool) or not isinstance(amount, (int, float)):
+                return False
+
+            amount = float(amount)
+            if not math.isfinite(amount) or amount <= 0 or amount > current_cash:
+                return False
+
+            if not self.government.apply_bribe(username, amount):
+                return False
+
+            self.database.setPath(cash_path, current_cash - amount)
+            self.sync_government_state()
+            return True
 
         self.sync_bank_state()
         return True

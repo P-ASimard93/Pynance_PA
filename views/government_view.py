@@ -10,7 +10,7 @@ class GovernmentView(ctk.CTkFrame):
         self.engine = engine
 
         self.grid_columnconfigure(0, weight = 1)
-        self.grid_rowconfigure(2, weight =1)
+        self.grid_rowconfigure(3, weight =1)
 
         header = ctk.CTkFrame(self, fg_color = "#181a20", corner_radius = 8)
         header.grid(row = 0, column = 0, padx = 18, pady = (18,10), sticky = "ew")
@@ -28,9 +28,32 @@ class GovernmentView(ctk.CTkFrame):
         self.country_label.grid(row = 1, column = 0, padx = 24, pady = 12, 
                                 sticky = "w")
 
+        self.grid_rowconfigure(3, weight = 1)
+
+        self.bribe_panel = ctk.CTkFrame(self, fg_color = "#181a20", corner_radius = 8)
+        self.bribe_panel.grid(row = 2, column = 0, padx = 18, pady = 10, sticky = "ew")
+        self.bribe_panel.grid_columnconfigure(0, weight = 1)
+
+        self.influence_label = ctk.CTkLabel(self.bribe_panel, text = "Influence politique: 0 / 100", 
+                                            text_color = "#eaecef", font = ("Arial", 14, "bold"))
+        self.influence_label.pack(anchor = "w", padx = 16, pady = (12, 4))
+
+        ctk.CTkLabel(self.bribe_panel, text = "Coût : 10 000 $ par point d'influence", 
+                     text_color = "#848e9c").pack(anchor = "w", padx = 16, pady = (0,8))
+
+        self.bribe_entry = ctk.CTkEntry(self.bribe_panel, placeholder_text = "Montant de pot-de-vin")
+        self.bribe_entry.pack(fill = "x", padx = 16, pady = (0, 8))
+
+        self.bribe_button = ctk.CTkButton(self.bribe_panel, text = "Payer un pot-de-vin", 
+                                          command = self.submit_bribe)
+        self.bribe_button.pack(anchor = "w", padx = 16, pady = (0, 8))
+
+        self.bribe_status = ctk.CTkLabel(self.bribe_panel, text = "", text_color = "#848e9c")
+        self.bribe_status.pack(anchor = "w", padx = 16, pady = (0, 12))
+
         self.figure, self.axis = plt.subplots(figsize = (8, 4), facecolor = "#181a20")
         self.canvas = FigureCanvasTkAgg(self.figure, master = self)
-        self.canvas.get_tk_widget().grid(row = 2, column = 0, padx = 18, 
+        self.canvas.get_tk_widget().grid(row = 3, column = 0, padx = 18, 
                                          pady = (0, 18), sticky = "nsew")
 
         self.refresh()
@@ -47,6 +70,9 @@ class GovernmentView(ctk.CTkFrame):
         player_state = players.get(self.engine.username, {})
         country = (player_state.get("country") if isinstance(player_state, dict)
                     else None)
+
+        influence = player_state.get("political_influence", 0.0)
+        self.influence_label.configure(text = f"Influence politique : {influence:.1f} / 100")
 
         health = fiscal_health.get(country) if country else None
         history = fiscal_history.get(country, []) if country else []
@@ -82,4 +108,30 @@ class GovernmentView(ctk.CTkFrame):
         self.axis.grid(True, color = "#363c4e", alpha = 0.5)
 
         self.canvas.draw_idle()
+
+    def submit_bribe(self):
+        try:
+            amount = float(self.bribe_entry.get())
+        except ValueError:
+            self.bribe_status.configure(text = "Entre un montant valide.")
+            return
+
+        if not math.isfinite(amount) or amount <= 0:
+            self.bribe_status.configure(text = "Le montant doit être positif.")
+            return
+
+        accepted = self.engine.request_bank_action("bribe", amount)
+
+        if not accepted:
+            self.bribe_status.configure(text = "Demande refusée: vérifie ton solde et ton plafond d'influence")
+            return
+
+        if self.engine.hosting:
+            self.bribe_status.configure(text = "Pot-de-vin payé.")
+            self.bribe_entry.delete(0, "end")
+            self. refresh()
+        else:
+            self.bribe_status.configure(text = "Demande envoyée à l'hôte.")
+
+       
         

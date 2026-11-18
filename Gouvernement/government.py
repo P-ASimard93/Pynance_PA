@@ -10,6 +10,8 @@ class Government:
     tax_rate_zero_health = 0.30
     tax_rate_full_health = 0.10
     fiscal_history_limit = 200
+    bribe_cost_per_influence = 10000.0
+    max_political_influence = 100.0
 
     def __init__(self, reset_state = True):
         self.data_directory = Path(__file__).resolve().parent
@@ -49,7 +51,8 @@ class Government:
         if player_id in self.players:
             return
 
-        self.players[player_id] = {"country": random.choice(self.countries)}
+        self.players[player_id] = {"country": random.choice(self.countries), 
+                                   "political_influence": 0.0}
         self.save_state()
 
     def get_tax_rate(self,country):
@@ -70,6 +73,14 @@ class Government:
         for player_id, player_state in state["players"].items():
             if (not isinstance(player_state, dict) or player_state.get("country") not in self.countries):
                 raise ValueError(f"Pays invalide dans l'état gouvernemental pour {player_id!r}")
+
+            influence = player_state.get("political_influence", 0.0)
+
+            if( isinstance(influence,bool) or not isinstance(influence, (int, float)) 
+            or not math.isfinite(influence) or not 0 <= influence <= self.max_political_influence):
+                raise ValueError(f"Influence politique invalide pour {player_id!r}")
+
+            player_state["political_influence"] = float(influence)
 
         saved_health = state.get("fiscal_health", {})
         if not isinstance(saved_health, dict):
@@ -124,7 +135,7 @@ class Government:
     def random_fiscal_drift(self):
         for country, health in self.fiscal_health.items():
             direction = random.choice((-1, 0 ,1))
-            amount = random.uniform(1, 3) if direction != 0 else 0.0
+            amount = random.uniform(1, 10) if direction != 0 else 0.0
 
             self.fiscal_health[country] = self.adjust_health(health + direction * amount)
 
@@ -168,3 +179,23 @@ class Government:
             del history[:-self.fiscal_history_limit]
 
         self.save_state()
+
+    def apply_bribe(self, player_id, amount):
+        player_state = self.players.get(player_id)
+        if player_state is None:
+            return False
+
+        influence = player_state.get("political_influence")
+        if (isinstance(amount,bool) or not isinstance(amount, (int, float)) 
+            or not math.isfinite(amount) or amount <= 0 or isinstance(influence,bool) 
+            or not isinstance(influence, (int, float)) or not math.isfinite(influence) 
+            or influence < 0 or influence > self.max_political_influence):
+            return False
+
+        influence_gain = amount / self.bribe_cost_per_influence
+        if influence + influence_gain > self.max_political_influence:
+            return False
+
+        player_state["political_influence"] = influence + influence_gain
+        self.save_state()
+        return True
