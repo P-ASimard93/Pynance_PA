@@ -143,7 +143,7 @@ class Engine:
         })
 
     def process_bank_action(self, username, action, amount=None):
-        if not self.hosting or action not in ("take_loan", "repay_loan", "repay_all", "bribe"):
+        if not self.hosting or action not in ("take_loan", "repay_loan", "repay_all", "bribe", "cover_traces"):
             return False
 
         self.bank.add_player(username)
@@ -206,6 +206,18 @@ class Engine:
             self.sync_government_state()
             return True
 
+        elif action == "cover_traces":
+            cost = self.government.cover_traces_cost
+
+            if current_cash < cost:
+                return False
+
+            if not self.government.cover_bribe_traces(username):
+             return False
+
+            self.database.setPath(cash_path, current_cash - cost)
+            self.sync_government_state()
+            return True
         self.sync_bank_state()
         return True
 
@@ -242,6 +254,26 @@ class Engine:
         self.database.set("government_state", {"players": self.government.players, 
                                                "fiscal_health": self.government.fiscal_health,
                                                "fiscal_history": self.government.fiscal_history})
+
+    def apply_corruption_penalty(self,username):
+        player_state = self.government.players.get(username)
+        if player_state is None:
+            return False
+
+        portfolios = dict(self.database.get("portfolios") or {})
+        positions = dict(portfolios.get(username, {}))
+
+        for ticker, quantity in positions.items():
+            if quantity > 0 and not self.sell(username, ticker, quantity):
+                raise RuntimeError(f"Impossible de saisir {quantity} actions de {ticker} pour {username!r}")
+
+        self.database.setPath(f"cash:{username}", 0.0)
+        player_state["political_influence"] = 0.0
+        player_state["bribe_risk"] = 0.0
+
+        self.government.save_state()
+        self.sync_government_state()
+        return True
 
     def tick(self):
         if self.hosting:
@@ -300,13 +332,20 @@ class Engine:
                 current_iteration=self.iteration, check_interval=event_check_interval, market=self.market
             )
 
-            if self.iteration% event_check_interval == 0:
+            if self.iteration % event_check_interval == 0:
                 if played_event and played_event.get("scope") == "global":
                     self.government.apply_global_event_impact(played_event)
                     self.sync_government_state()
                 else:
                     self.government.random_fiscal_drift()
                     self.sync_government_state()
+
+                caught_players = self.government.advance_bribe_risk()
+
+                for player_id in caught_players:
+                    self.apply_corruption_penalty(player_id)
+
+                self.sync_government_state()
 
             if self.eventer.event_list:
                 next_event = self.eventer.event_list[0]

@@ -12,6 +12,10 @@ class Government:
     fiscal_history_limit = 200
     bribe_cost_per_influence = 10000.0
     max_political_influence = 100.0
+    bribe_risk_per_10k = 5.0
+    bribe_risk_growth_per_check = 0.1
+    cover_traces_cost = 100000.0
+    cover_traces_reduction = 10.0
 
     def __init__(self, reset_state = True):
         self.data_directory = Path(__file__).resolve().parent
@@ -52,7 +56,8 @@ class Government:
             return
 
         self.players[player_id] = {"country": random.choice(self.countries), 
-                                   "political_influence": 0.0}
+                                   "political_influence": 0.0,
+                                   "bribe_risk": 0.0}
         self.save_state()
 
     def get_tax_rate(self,country):
@@ -81,6 +86,14 @@ class Government:
                 raise ValueError(f"Influence politique invalide pour {player_id!r}")
 
             player_state["political_influence"] = float(influence)
+
+            risk = player_state.get("bribe_risk", 0.0)
+
+            if (isinstance(risk,bool) or not isinstance(risk, (int, float)) 
+                or not math.isfinite(risk) or not 0 <= risk <= 100):
+                raise ValueError(f"Risque de corruption invalide pour {player_id!r}")
+
+            player_state["bribe_risk"] = float(risk)
 
         saved_health = state.get("fiscal_health", {})
         if not isinstance(saved_health, dict):
@@ -196,6 +209,41 @@ class Government:
         if influence + influence_gain > self.max_political_influence:
             return False
 
+        risk = player_state.get("bribe_risk", 0.0)
+        risk_gain = amount / self.bribe_cost_per_influence * self.bribe_risk_per_10k
+
         player_state["political_influence"] = influence + influence_gain
+        player_state["bribe_risk"] = min(100.0, risk + risk_gain)
+        self.save_state()
+        return True
+
+    def advance_bribe_risk(self):
+        caught_players = []
+
+        for player_id, player_state in self.players.items():
+            risk = player_state.get("bribe_risk", 0.0)
+            if risk <= 0:
+                continue
+
+            risk = min(100.0, risk + self.bribe_risk_growth_per_check)
+            player_state["bribe_risk"] = risk
+
+            if random.random() < risk / 100:
+                caught_players.append(player_id)
+
+        self.save_state()
+        return caught_players
+
+    def cover_bribe_traces(self, player_id):
+        player_state = self.players.get(player_id)
+        if player_state is None:
+            return False
+
+        risk = player_state.get("bribe_risk", 0.0)
+        if(isinstance(risk, bool) or not isinstance(risk, (int, float)) or not math.isfinite(risk) 
+           or risk <= 0):
+            return False
+
+        player_state["bribe_risk"] = max(0.0, risk - self.cover_traces_reduction)
         self.save_state()
         return True

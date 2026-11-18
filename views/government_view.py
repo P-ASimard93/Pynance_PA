@@ -51,6 +51,15 @@ class GovernmentView(ctk.CTkFrame):
         self.bribe_status = ctk.CTkLabel(self.bribe_panel, text = "", text_color = "#848e9c")
         self.bribe_status.pack(anchor = "w", padx = 16, pady = (0, 12))
 
+        self.risk_label = ctk.CTkLabel(self.bribe_panel, text = "Risque de détection : 0 / 100", 
+                                       text_color = "#eaecef")
+        self.risk_label.pack(anchor = "w", padx = 16, pady = (0, 8))
+
+        self.cover_button = ctk.CTkButton(self.bribe_panel, text = "Couvrir mes traces - 100 000 $", 
+                                          command = self.cover_traces)
+        self.cover_button.pack(anchor = "w", padx = 16, pady = (0, 8))
+
+
         self.figure, self.axis = plt.subplots(figsize = (8, 4), facecolor = "#181a20")
         self.canvas = FigureCanvasTkAgg(self.figure, master = self)
         self.canvas.get_tk_widget().grid(row = 3, column = 0, padx = 18, 
@@ -73,6 +82,9 @@ class GovernmentView(ctk.CTkFrame):
 
         influence = player_state.get("political_influence", 0.0)
         self.influence_label.configure(text = f"Influence politique : {influence:.1f} / 100")
+
+        risk = player_state.get("bribe_risk", 0.0)
+        self.risk_label.configure(text = f"Risque de détection : {risk:.1f} / 100")
 
         health = fiscal_health.get(country) if country else None
         history = fiscal_history.get(country, []) if country else []
@@ -133,5 +145,13 @@ class GovernmentView(ctk.CTkFrame):
         else:
             self.bribe_status.configure(text = "Demande envoyée à l'hôte.")
 
-       
-        
+    def cover_traces(self):
+        accepted = self.engine.request_bank_action("cover_traces")
+
+        if not accepted:
+            self.bribe_status.configure(text = "Couverture refusée : vérifie ton solde et ton risque.")
+        elif self.engine.hosting:
+            self.bribe_status.configure(text = "Traces couvertes.")
+            self.refresh()
+        else:
+            self.bribe_status.configure(text = "Demande envoyée à l'hôte.")
