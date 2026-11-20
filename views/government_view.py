@@ -59,6 +59,26 @@ class GovernmentView(ctk.CTkFrame):
                                           command = self.cover_traces)
         self.cover_button.pack(anchor = "w", padx = 16, pady = (0, 8))
 
+        self.tax_havens_label = ctk.CTkLabel(self.bribe_panel, text = "", 
+                                             text_color = "#848e9c", wraplength = 900)
+        self.tax_havens_label.pack(anchor = "w", padx = 16, pady = (8, 4))
+
+        self.offshore_balance_label = ctk.CTkLabel(self.bribe_panel, text = "Solde cachée : 0,00 $", 
+                                                        text_color = "#eaecef")
+        self.offshore_balance_label.pack(anchor = "w", padx = 16, pady = (0,4))
+
+        self.offshore_entry = ctk.CTkEntry(self.bribe_panel, placeholder_text = "Montant à transférer")
+        self.offshore_entry.pack(fill = "x", padx = 16, pady = (0, 8))
+
+        offshore_buttons = ctk.CTkFrame(self.bribe_panel, fg_color = "transparent")
+        offshore_buttons.pack(anchor = "w", padx = 16, pady = (0, 8))
+
+        ctk.CTkButton(offshore_buttons, text = "Déposer", command = lambda: self.transfer_offshore("deposit_offshore")).pack(side = "left", padx = (0, 8))
+
+        ctk.CTkButton(offshore_buttons, text = "Retirer", command = lambda: self.transfer_offshore("withdraw_offshore")).pack(side = "left")
+
+        self.offshore_status = ctk.CTkLabel(self.bribe_panel, text = "", text_color = "#848e9c")
+        self.offshore_status.pack(anchor = "w", padx = 16, pady = (0, 12))
 
         self.figure, self.axis = plt.subplots(figsize = (8, 4), facecolor = "#181a20")
         self.canvas = FigureCanvasTkAgg(self.figure, master = self)
@@ -79,6 +99,16 @@ class GovernmentView(ctk.CTkFrame):
         player_state = players.get(self.engine.username, {})
         country = (player_state.get("country") if isinstance(player_state, dict)
                     else None)
+
+        tax_havens = state.get("tax_haven_countries", [])
+        if not isinstance(tax_havens, list):
+            tax_havens = []
+
+        tax_rate = self.engine.government.offshore_tax_rate
+        self.tax_havens_label.configure( text = f"Paradis fiscaux ({tax_rate:.1%} par prélèvement) : {', '.join(tax_havens)}")
+
+        offshore_cash = player_state.get("offshore_cash", 0.0)
+        self.offshore_balance_label.configure(text = f"Solde cachée : {offshore_cash:,.2f} $")
 
         influence = player_state.get("political_influence", 0.0)
         self.influence_label.configure(text = f"Influence politique : {influence:.1f} / 100")
@@ -155,3 +185,26 @@ class GovernmentView(ctk.CTkFrame):
             self.refresh()
         else:
             self.bribe_status.configure(text = "Demande envoyée à l'hôte.")
+
+    def transfer_offshore(self, action):
+        try:
+            amount = float(self.offshore_entry.get())
+        except ValueError:
+            self.offshore_status.configure(text = "Entre un montant valide")
+            return
+
+        if not math.isfinite(amount) or amount <= 0:
+            self.offshore_status.configure(text = "Le montant doit être positif.")
+            return
+
+        accepted = self.engine.request_bank_action(action, amount)
+
+        if not accepted:
+            self.offshore_status.configure(text = "Transfert refusé : vérifie ton solde.")
+        elif self.engine.hosting:
+            label = "Dépôt effectué." if action == "deposit_offshore" else "Retrait effectué."
+            self.offshore_status.configure(text = label)
+            self.offshore_entry.delete(0, "end")
+            self.refresh()
+        else:
+            self.offshore_status.configure(text = "Demande envoyée à l'hôte")

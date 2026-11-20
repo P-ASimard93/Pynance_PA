@@ -79,6 +79,9 @@ target/
 # Generated random-event runtime state
 random_events/event_state.json
 
+# Generated government runtime state
+Gouvernement/government_state.json
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

@@ -143,7 +143,13 @@ class Engine:
         })
 
     def process_bank_action(self, username, action, amount=None):
-        if not self.hosting or action not in ("take_loan", "repay_loan", "repay_all", "bribe", "cover_traces"):
+        if not self.hosting or action not in ("take_loan", 
+                                              "repay_loan", 
+                                              "repay_all", 
+                                              "bribe", 
+                                              "cover_traces",
+                                              "deposit_offshore",
+                                              "withdraw_offshore"):
             return False
 
         self.bank.add_player(username)
@@ -218,6 +224,41 @@ class Engine:
             self.database.setPath(cash_path, current_cash - cost)
             self.sync_government_state()
             return True
+
+        elif action in  ("deposit_offshore", "withdraw_offshore"):
+            if isinstance(amount,bool) or not isinstance(amount, (int, float)):
+                return False
+
+            amount = float(amount)
+            if not math.isfinite(amount) or amount <= 0:
+                return False
+
+            player_state = self.government.players.get(username)
+            if player_state is None:
+                return False
+
+            offshore_cash = player_state.get("offshore_cash", 0.0)
+            if (isinstance(offshore_cash, bool) or not isinstance(offshore_cash, (int, float)) 
+                or not math.isfinite(offshore_cash) or offshore_cash < 0):
+                return False
+
+            if action == "deposit_offshore":
+                if amount > current_cash:
+                    return False
+
+                self.database.setPath(cash_path, current_cash - amount)
+                player_state["offshore_cash"] = offshore_cash + amount
+            else:
+                if amount > offshore_cash:
+                    return False
+
+                self.database.setPath(cash_path, current_cash + amount)
+                player_state["offshore_cash"] = offshore_cash - amount
+
+            self.government.save_state()
+            self.sync_government_state()
+            return True
+
         self.sync_bank_state()
         return True
 
@@ -253,7 +294,8 @@ class Engine:
     def sync_government_state(self):
         self.database.set("government_state", {"players": self.government.players, 
                                                "fiscal_health": self.government.fiscal_health,
-                                               "fiscal_history": self.government.fiscal_history})
+                                               "fiscal_history": self.government.fiscal_history,
+                                               "tax_haven_countries": self.government.tax_haven_countries})
 
     def apply_corruption_penalty(self,username):
         player_state = self.government.players.get(username)
@@ -293,6 +335,14 @@ class Engine:
                     tax_amount = current_cash * tax_rate
 
                     self.database.setPath(cash_path, current_cash - tax_amount)
+
+                    offshore_cash = player_state.get("offshore_cash", 0.0)
+                    if (isinstance(offshore_cash, bool) or not isinstance(offshore_cash, (int, float)) 
+                        or not math.isfinite(offshore_cash) or offshore_cash < 0):
+                        raise ValueError(f"Solde cachée invalide pour {player_id!r}")
+
+                    offshore_tax = offshore_cash * self.government.offshore_tax_rate
+                    player_state["offshore_cash"] = offshore_cash - offshore_tax
                     
             if self.iteration % self.bank.mandatory_payment_interval == 0:
                 for player_id in list(self.bank.player_loans):

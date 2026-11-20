@@ -16,6 +16,8 @@ class Government:
     bribe_risk_growth_per_check = 0.1
     cover_traces_cost = 100000.0
     cover_traces_reduction = 10.0
+    tax_haven_count = 5
+    offshore_tax_rate = 0.075
 
     def __init__(self, reset_state = True):
         self.data_directory = Path(__file__).resolve().parent
@@ -31,6 +33,11 @@ class Government:
 
             if not self.countries:
                 raise ValueError(f"Aucun pays trouvé dans {self.country_file}")
+
+            if len(self.countries) <= self.tax_haven_count:
+                raise ValueError("Il faut plus de pays que le nombre de paradis fiscaux.")
+
+            self.tax_haven_countries = random.sample(self.countries, self.tax_haven_count)
 
             self.fiscal_health = {country: self.initial_fiscal_health for country 
                                   in self.countries}
@@ -55,7 +62,10 @@ class Government:
         if player_id in self.players:
             return
 
-        self.players[player_id] = {"country": random.choice(self.countries), 
+        available_countries = [country for country in self.countries if country not in self.tax_haven_countries]
+
+        self.players[player_id] = {"country": random.choice(available_countries),
+                                   "offshore_cash": 0.0, 
                                    "political_influence": 0.0,
                                    "bribe_risk": 0.0}
         self.save_state()
@@ -75,7 +85,23 @@ class Government:
         if not isinstance(state, dict) or not isinstance(state.get("players"), dict):
             raise ValueError(f"État gouvernemental invalide: {self.state_file}")
 
-        for player_id, player_state in state["players"].items():
+        saved_havens = state.get("tax_haven_countries")
+                
+        if saved_havens is None:
+            occupied_countries = {player.get("country") for player in state["players"].values() 
+                                if isinstance(player,dict) and player.get("country") in self.countries}
+            available_havens = [country for country in self.countries if country not in occupied_countries]
+            if len(available_havens) < self.tax_haven_count:
+                raise ValueError("Impossible de choisir les paradis fiscaux")
+                
+            saved_havens = random.sample(available_havens, self.tax_haven_count)
+                
+        if ( not isinstance(saved_havens, list) or len(saved_havens) != self.tax_haven_count or any(country not in self.countries for country in saved_havens) or len(set(saved_havens)) != self.tax_haven_count):
+            raise ValueError("Liste de paradis fiscaux invalide.")
+                
+        self.tax_haven_countries = saved_havens
+
+        for player_id, player_state in state["players"].items():   
             if (not isinstance(player_state, dict) or player_state.get("country") not in self.countries):
                 raise ValueError(f"Pays invalide dans l'état gouvernemental pour {player_id!r}")
 
@@ -95,6 +121,15 @@ class Government:
 
             player_state["bribe_risk"] = float(risk)
 
+            offshore_cash = player_state.get("offshore_cash", 0.0)
+            if(isinstance(offshore_cash, bool) or not isinstance(offshore_cash, (int, float)) or not math.isfinite(offshore_cash) or offshore_cash < 0):
+                raise ValueError(f"Solde cachée invaliude pour {player_id!r}")
+
+            player_state["offshore_cash"] = float(offshore_cash)
+
+            if(not isinstance(player_state, dict) or player_state.get("country") not in self.countries or player_state.get("country") in self.tax_haven_countries):
+                raise ValueError(f"Pays invalide dans l'état gouvernemental pour {player_id!r}")
+                
         saved_health = state.get("fiscal_health", {})
         if not isinstance(saved_health, dict):
             raise ValueError(f"Santé fiscale invalide: {self.state_file}")
@@ -108,6 +143,7 @@ class Government:
             self.fiscal_health[country] = float(health)
 
         saved_history = state.get("fiscal_history", {})
+
         if not isinstance(saved_history, dict):
             raise ValueError("Historique fiscal invalide")
 
@@ -119,7 +155,7 @@ class Government:
                 continue
 
             if not isinstance(values, list):
-                raise ValueError(f"Histprique fiscal invalide pour {country!r}")
+                raise ValueError(f"Historique fiscal invalide pour {country!r}")
 
             valid_values = []
             for value in values:
@@ -139,8 +175,11 @@ class Government:
 
     def save_state(self):
         with self.state_file.open("w", encoding = "utf-8") as file:
-            json.dump({"players": self.players, "fiscal_health": self.fiscal_health, 
-                       "fiscal_history": self.fiscal_history}, file, indent = 2, ensure_ascii = False)
+            json.dump({"players": self.players, 
+                       "fiscal_health": self.fiscal_health, 
+                       "fiscal_history": self.fiscal_history,
+                       "tax_haven_countries": self.tax_haven_countries}, 
+                       file, indent = 2, ensure_ascii = False)
 
     def adjust_health(self, value, minimum = 0.00, maximum = 100.0):
         return max(minimum, min(maximum, value))
